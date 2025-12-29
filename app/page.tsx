@@ -897,7 +897,7 @@ export default function Home() {
             <BlurFade>
               <div className="flex flex-col items-center gap-3 text-center">
                 <TextPressure
-                  text="EasyPeasyEase"
+                  text="EasyPeasyVideo"
                   fontFamily="var(--font-inter-variable)"
                   weight={true}
                   width={false}
@@ -912,7 +912,6 @@ export default function Home() {
                     <p className="max-w-lg text-base sm:text-lg text-muted-foreground">
                       Free tool to stitch and apply ease curves to short videos.
                     </p>
-                    <p className="text-xs text-muted-foreground/50">v0.1.2</p>
                   </div>
                 )}
               </div>
