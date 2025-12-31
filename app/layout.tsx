@@ -25,17 +25,17 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EasyPeasyVideo",
+  title: "Jumpcut",
   description: "Stitch and apply ease curves to short videos.",
   icons: {
-    icon: "/eze.svg",
+    icon: "/favicon.png",
   },
   openGraph: {
-    title: "EasyPeasyVideo",
+    title: "Jumpcut",
     description: "Stitch and apply ease curves to short videos.",
     images: [
       {
-        url: "/og-eze.jpg",
+        url: "/jumpcut.png",
         width: 1200,
         height: 600,
         alt: "easy peasy ease wordmark on lime background",
@@ -44,9 +44,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "EasyPeasyVideo",
+    title: "Jumpcut",
     description: "Stitch and apply ease curves to short videos.",
-    images: ["/og-eze.jpg"],
+    images: ["/jumpcut.png"],
   },
 };
 

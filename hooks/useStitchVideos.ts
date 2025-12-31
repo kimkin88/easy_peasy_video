@@ -245,7 +245,7 @@ export const useStitchVideos = (): UseStitchVideosReturn => {
         updateProgress('processing', 'Creating output container...', 10);
 
         const videoSource = new VideoSampleSource(
-          createAvcEncodingConfig(resolvedBitrate, safeWidth, safeHeight, codecProfile)
+          createAvcEncodingConfig(resolvedBitrate, 1280, 720, codecProfile)
         );
 
         const bufferTarget = new BufferTarget();

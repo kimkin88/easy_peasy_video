@@ -1,14 +1,28 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Upload, Play, PlayCircle, GripVertical, Trash2, AlertTriangle } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { LightRays } from '@/components/ui/light-rays';
-import { BlurFade } from '@/components/ui/blur-fade';
-import { FinalVideoEditor } from '@/components/FinalVideoEditor';
-import { useFinalizeVideo } from '@/hooks/useFinalizeVideo';
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  Upload,
+  Play,
+  PlayCircle,
+  GripVertical,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogHeader,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { LightRays } from "@/components/ui/light-rays";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { FinalVideoEditor } from "@/components/FinalVideoEditor";
+import { useFinalizeVideo } from "@/hooks/useFinalizeVideo";
 import {
   TransitionVideo,
   FinalVideo,
@@ -16,16 +30,16 @@ import {
   SpeedCurvedBlobCache,
   UpdateReason,
   FinalizeContext,
-} from '@/lib/types';
-import TextPressure from '@/components/text/text-pressure';
-import { canEncodeVideo, getEncodableVideoCodecs } from 'mediabunny';
+} from "@/lib/types";
+import TextPressure from "@/components/text/text-pressure";
+import { canEncodeVideo, getEncodableVideoCodecs } from "mediabunny";
 import {
   DEFAULT_CUSTOM_BEZIER,
   EASING_PRESETS,
   getPresetBezier,
-} from '@/lib/easing-presets';
-import { DEFAULT_EASING } from '@/lib/speed-curve-config';
-import { AVC_LEVEL_4_0, AVC_LEVEL_5_1 } from '@/lib/video-encoding';
+} from "@/lib/easing-presets";
+import { DEFAULT_EASING } from "@/lib/speed-curve-config";
+import { AVC_LEVEL_4_0, AVC_LEVEL_5_1 } from "@/lib/video-encoding";
 
 type AudioFinalizeOptions = {
   audioBlob?: Blob;
@@ -47,19 +61,19 @@ interface PreflightWarning {
   id: string;
   title: string;
   description: string;
-  severity: 'warning' | 'error';
+  severity: "warning" | "error";
 }
 
 const readVideoMetadata = (file: File | Blob): Promise<VideoMetadata> =>
   new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
-    const video = document.createElement('video');
-    video.preload = 'metadata';
+    const video = document.createElement("video");
+    video.preload = "metadata";
     video.muted = true;
     video.playsInline = true;
 
     const cleanup = () => {
-      video.removeAttribute('src');
+      video.removeAttribute("src");
       video.load();
       URL.revokeObjectURL(url);
     };
@@ -70,7 +84,7 @@ const readVideoMetadata = (file: File | Blob): Promise<VideoMetadata> =>
       const duration = Number.isFinite(video.duration) ? video.duration : 0;
       cleanup();
       if (!width || !height) {
-        reject(new Error('Unable to determine video dimensions.'));
+        reject(new Error("Unable to determine video dimensions."));
         return;
       }
       resolve({ width, height, duration });
@@ -78,14 +92,16 @@ const readVideoMetadata = (file: File | Blob): Promise<VideoMetadata> =>
 
     video.onerror = () => {
       cleanup();
-      reject(new Error('Failed to read video metadata.'));
+      reject(new Error("Failed to read video metadata."));
     };
 
     video.src = url;
   });
 
 const getCodecStringForResolution = (width: number, height: number) =>
-  width >= FOUR_K_WIDTH || height >= FOUR_K_HEIGHT ? AVC_LEVEL_5_1 : AVC_LEVEL_4_0;
+  width >= FOUR_K_WIDTH || height >= FOUR_K_HEIGHT
+    ? AVC_LEVEL_5_1
+    : AVC_LEVEL_4_0;
 
 const estimateBitrateForResolution = (width: number, height: number) => {
   const pixels = width * height;
@@ -105,7 +121,7 @@ const estimateBitrateForResolution = (width: number, height: number) => {
 };
 
 const formatResolutionLabel = (width?: number, height?: number) =>
-  width && height ? `${width}x${height}` : 'this resolution';
+  width && height ? `${width}x${height}` : "this resolution";
 
 const cloneSegmentForLoop = (
   segment: TransitionVideo,
@@ -113,7 +129,7 @@ const cloneSegmentForLoop = (
   loopIteration: number
 ): TransitionVideo => {
   const clonedBezier = segment.customBezier
-    ? [...segment.customBezier] as [number, number, number, number]
+    ? ([...segment.customBezier] as [number, number, number, number])
     : undefined;
   let clonedUrl = segment.url;
   if (segment.cachedBlob) {
@@ -136,9 +152,9 @@ const ensureLoopIterations = (segments: TransitionVideo[]): TransitionVideo[] =>
     segment.loopIteration
       ? segment
       : {
-        ...segment,
-        loopIteration: 1,
-      }
+          ...segment,
+          loopIteration: 1,
+        }
   );
 
 const syncSegmentsToLoopCount = (
@@ -163,7 +179,8 @@ const syncSegmentsToLoopCount = (
 
   let updatedSegments = [...normalized];
   let loopCursor = currentMaxLoop;
-  let nextId = updatedSegments.reduce((max, segment) => Math.max(max, segment.id), 0) + 1;
+  let nextId =
+    updatedSegments.reduce((max, segment) => Math.max(max, segment.id), 0) + 1;
 
   while (loopCursor < targetLoopCount) {
     const sourceSegments = updatedSegments.filter(
@@ -172,7 +189,8 @@ const syncSegmentsToLoopCount = (
     const fallbackSegments = updatedSegments.filter(
       (segment) => (segment.loopIteration ?? 1) === 1
     );
-    const segmentsToClone = sourceSegments.length > 0 ? sourceSegments : fallbackSegments;
+    const segmentsToClone =
+      sourceSegments.length > 0 ? sourceSegments : fallbackSegments;
 
     const clonedSegments = segmentsToClone.map((segment) =>
       cloneSegmentForLoop(segment, nextId++, loopCursor + 1)
@@ -187,23 +205,34 @@ const syncSegmentsToLoopCount = (
 
 export default function Home() {
   const [uploadedVideos, setUploadedVideos] = useState<File[]>([]);
-  const [transitionVideos, setTransitionVideos] = useState<TransitionVideo[]>([]);
-  const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(null);
+  const [transitionVideos, setTransitionVideos] = useState<TransitionVideo[]>(
+    []
+  );
+  const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(
+    null
+  );
   const [loopCount, setLoopCount] = useState(1);
-  const [draggingVideoIndex, setDraggingVideoIndex] = useState<number | null>(null);
-  const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(null);
+  const [draggingVideoIndex, setDraggingVideoIndex] = useState<number | null>(
+    null
+  );
+  const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(
+    null
+  );
   const [finalVideo, setFinalVideo] = useState<FinalVideo | null>(null);
   const [isFinalizingVideo, setIsFinalizingVideo] = useState(false);
   const [finalizationProgress, setFinalizationProgress] = useState(0);
-  const [finalizationMessage, setFinalizationMessage] = useState('');
+  const [finalizationMessage, setFinalizationMessage] = useState("");
   const [isDropZoneHovered, setIsDropZoneHovered] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
-  const [preflightWarnings, setPreflightWarnings] = useState<PreflightWarning[]>([]);
+  const [preflightWarnings, setPreflightWarnings] = useState<
+    PreflightWarning[]
+  >([]);
   const [showPreflightDialog, setShowPreflightDialog] = useState(false);
   const transitionVideosRef = useRef<TransitionVideo[]>([]);
 
   // Cache for speed-curved blobs to enable fast audio-only updates
-  const [speedCurveCache, setSpeedCurveCache] = useState<SpeedCurvedBlobCache | null>(null);
+  const [speedCurveCache, setSpeedCurveCache] =
+    useState<SpeedCurvedBlobCache | null>(null);
 
   // Refs for tracking previous values to detect what changed
   const prevAudioBlobRef = useRef<Blob | null>(null);
@@ -267,21 +296,27 @@ export default function Home() {
             return prev.map((v) =>
               v.id === segmentId
                 ? {
-                  ...v,
-                  encodeCapability: {
-                    status: 'checking',
-                    message: 'Checking device encoder support…',
-                  },
-                }
+                    ...v,
+                    encodeCapability: {
+                      status: "checking",
+                      message: "Checking device encoder support…",
+                    },
+                  }
                 : v
             );
           });
 
           try {
             const metadata = await readVideoMetadata(blobSource);
-            const codecString = getCodecStringForResolution(metadata.width, metadata.height);
-            const bitrate = estimateBitrateForResolution(metadata.width, metadata.height);
-            const supported = await canEncodeVideo('avc', {
+            const codecString = getCodecStringForResolution(
+              metadata.width,
+              metadata.height
+            );
+            const bitrate = estimateBitrateForResolution(
+              metadata.width,
+              metadata.height
+            );
+            const supported = await canEncodeVideo("avc", {
               width: metadata.width,
               height: metadata.height,
               bitrate,
@@ -295,24 +330,26 @@ export default function Home() {
               return prev.map((v) =>
                 v.id === segmentId
                   ? {
-                    ...v,
-                    width: metadata.width,
-                    height: metadata.height,
-                    encodeCapability: {
-                      status: supported ? 'supported' : 'unsupported',
-                      message: supported
-                        ? `Device can encode ${metadata.width}x${metadata.height} AVC`
-                        : `Device encoder cannot output ${metadata.width}x${metadata.height}`,
-                      codecString,
-                      bitrate,
-                    },
-                  }
+                      ...v,
+                      width: metadata.width,
+                      height: metadata.height,
+                      encodeCapability: {
+                        status: supported ? "supported" : "unsupported",
+                        message: supported
+                          ? `Device can encode ${metadata.width}x${metadata.height} AVC`
+                          : `Device encoder cannot output ${metadata.width}x${metadata.height}`,
+                        codecString,
+                        bitrate,
+                      },
+                    }
                   : v
               );
             });
           } catch (error) {
             const errorMessage =
-              error instanceof Error ? error.message : 'Unable to verify encode capability';
+              error instanceof Error
+                ? error.message
+                : "Unable to verify encode capability";
             setTransitionVideos((prev) => {
               if (!prev.some((v) => v.id === segmentId)) {
                 return prev;
@@ -320,12 +357,12 @@ export default function Home() {
               return prev.map((v) =>
                 v.id === segmentId
                   ? {
-                    ...v,
-                    encodeCapability: {
-                      status: 'error',
-                      message: errorMessage,
-                    },
-                  }
+                      ...v,
+                      encodeCapability: {
+                        status: "error",
+                        message: errorMessage,
+                      },
+                    }
                   : v
               );
             });
@@ -343,14 +380,18 @@ export default function Home() {
         return;
       }
 
-      const videoFiles = Array.from(files).filter((f) => f.type.startsWith('video/'));
-      setUploadedVideos(videoFiles);
+      const videoFiles = Array.from(files).filter((f) =>
+        f.type.startsWith("video/")
+      );
+      setUploadedVideos((prev) => [...prev, ...videoFiles]);
 
       try {
         const preparedSegments = await Promise.all(
           videoFiles.map(async (file, index) => {
             const buffer = await file.arrayBuffer();
-            const cachedBlob = new Blob([buffer], { type: file.type || 'video/mp4' });
+            const cachedBlob = new Blob([buffer], {
+              type: file.type || "video/mp4",
+            });
             const objectUrl = URL.createObjectURL(cachedBlob);
 
             return {
@@ -366,16 +407,27 @@ export default function Home() {
               file,
               cachedBlob,
               encodeCapability: {
-                status: 'checking',
-                message: 'Checking device encoder support...',
+                status: "checking",
+                message: "Checking device encoder support...",
               },
             } as TransitionVideo;
           })
         );
 
+        // setTransitionVideos((prev) => {
+        //   cleanupSegmentResources(prev);
+        //   return preparedSegments;
+        // });
         setTransitionVideos((prev) => {
-          cleanupSegmentResources(prev);
-          return preparedSegments;
+          const nextId =
+            prev.length > 0 ? Math.max(...prev.map((v) => v.id)) + 1 : 1;
+
+          const preparedWithIds = preparedSegments.map((segment, i) => ({
+            ...segment,
+            id: nextId + i,
+          }));
+
+          return [...prev, ...preparedWithIds];
         });
         setLoopCount(1);
         setSelectedSegmentId(preparedSegments[0]?.id ?? null);
@@ -385,10 +437,10 @@ export default function Home() {
         prevAudioSettingsRef.current = null;
         void evaluateVideoEncodeCapability(preparedSegments);
       } catch (error) {
-        console.error('Failed to process uploaded videos', error);
+        console.error("Failed to process uploaded videos", error);
       } finally {
         if (e.target) {
-          e.target.value = '';
+          e.target.value = "";
         }
       }
     },
@@ -449,12 +501,22 @@ export default function Home() {
     );
   };
 
-  const handleSegmentDurationChange = (id: number, duration: number, applyAll = false) => {
-    const safeDuration = Number.isFinite(duration) ? Math.max(0.1, duration) : 0.1;
+  const handleSegmentDurationChange = (
+    id: number,
+    duration: number,
+    applyAll = false
+  ) => {
+    const safeDuration = Number.isFinite(duration)
+      ? Math.max(0.1, duration)
+      : 0.1;
     updateSegmentMetadata(id, { duration: safeDuration }, applyAll);
   };
 
-  const handleSegmentPresetChange = (id: number, preset: string, applyAll = false) => {
+  const handleSegmentPresetChange = (
+    id: number,
+    preset: string,
+    applyAll = false
+  ) => {
     updateSegmentMetadata(
       id,
       {
@@ -471,11 +533,19 @@ export default function Home() {
     bezier: [number, number, number, number],
     applyAll = false
   ) => {
-    updateSegmentMetadata(id, { customBezier: bezier, useCustomEasing: true }, applyAll);
+    updateSegmentMetadata(
+      id,
+      { customBezier: bezier, useCustomEasing: true },
+      applyAll
+    );
   };
 
   useEffect(() => {
-    if (finalVideo && transitionVideos.length > 0 && selectedSegmentId === null) {
+    if (
+      finalVideo &&
+      transitionVideos.length > 0 &&
+      selectedSegmentId === null
+    ) {
       setSelectedSegmentId(transitionVideos[0].id);
     }
   }, [finalVideo, transitionVideos, selectedSegmentId]);
@@ -508,7 +578,7 @@ export default function Home() {
 
   const handleReapplyFinalVideo = async (options?: AudioFinalizeOptions) => {
     // Determine update reason based on what changed
-    let reason: UpdateReason = 'full';
+    let reason: UpdateReason = "full";
 
     if (options?.updateHint) {
       // Use hint from FinalVideoEditor if provided
@@ -523,12 +593,13 @@ export default function Home() {
         options?.audioSettings &&
         prevAudioSettingsRef.current &&
         (options.audioSettings.fadeIn !== prevAudioSettingsRef.current.fadeIn ||
-          options.audioSettings.fadeOut !== prevAudioSettingsRef.current.fadeOut);
+          options.audioSettings.fadeOut !==
+            prevAudioSettingsRef.current.fadeOut);
 
       if (audioSettingsChanged && !audioFileChanged) {
-        reason = 'audio-fade';
+        reason = "audio-fade";
       } else if (audioFileChanged) {
-        reason = 'audio-file';
+        reason = "audio-file";
       }
     }
 
@@ -543,7 +614,9 @@ export default function Home() {
     await handleFinalizeVideo(undefined, options, true, reason);
   };
 
-  const runPreflightChecks = (segments: TransitionVideo[]): PreflightWarning[] => {
+  const runPreflightChecks = (
+    segments: TransitionVideo[]
+  ): PreflightWarning[] => {
     const warnings: PreflightWarning[] = [];
 
     // 1. Check for mixed orientation
@@ -558,10 +631,11 @@ export default function Home() {
 
     if (hasPortrait && hasLandscape) {
       warnings.push({
-        id: 'orientation-mismatch',
-        title: 'Mixed Video Orientations',
-        description: 'You have both portrait and landscape videos. The final output might look rotated or stretched.',
-        severity: 'warning',
+        id: "orientation-mismatch",
+        title: "Mixed Video Orientations",
+        description:
+          "You have both portrait and landscape videos. The final output might look rotated or stretched.",
+        severity: "warning",
       });
     }
 
@@ -577,10 +651,10 @@ export default function Home() {
 
     if (maxHeight > 0 && minHeight < Infinity && maxHeight > minHeight * 2) {
       warnings.push({
-        id: 'resolution-disparity',
-        title: 'Resolution Disparity',
+        id: "resolution-disparity",
+        title: "Resolution Disparity",
         description: `Some videos are much larger than others (Max: ${maxHeight}p, Min: ${minHeight}p). Smaller videos will be upscaled, which may look blurry.`,
-        severity: 'warning',
+        severity: "warning",
       });
     }
 
@@ -588,21 +662,26 @@ export default function Home() {
     const totalSize = segments.reduce((acc, s) => acc + (s.file?.size || 0), 0);
     if (totalSize > MAX_TOTAL_SIZE_BYTES) {
       warnings.push({
-        id: 'large-files',
-        title: 'Large Project Size',
-        description: `Total video size is ${(totalSize / (1024 * 1024 * 1024)).toFixed(1)}GB. This might crash the browser during processing.`,
-        severity: 'error', // High risk
+        id: "large-files",
+        title: "Large Project Size",
+        description: `Total video size is ${(
+          totalSize /
+          (1024 * 1024 * 1024)
+        ).toFixed(1)}GB. This might crash the browser during processing.`,
+        severity: "error", // High risk
       });
     }
 
     // 4. Encoder support (re-using existing status)
-    const unsupportedVideos = segments.filter(s => s.encodeCapability?.status === 'unsupported');
+    const unsupportedVideos = segments.filter(
+      (s) => s.encodeCapability?.status === "unsupported"
+    );
     if (unsupportedVideos.length > 0) {
       warnings.push({
-        id: 'unsupported-encoder',
-        title: 'Unsupported Resolution',
+        id: "unsupported-encoder",
+        title: "Unsupported Resolution",
         description: `Your device cannot encode some video resolutions (e.g. ${unsupportedVideos[0].width}x${unsupportedVideos[0].height}). The process will likely fail.`,
-        severity: 'error',
+        severity: "error",
       });
     }
 
@@ -613,9 +692,14 @@ export default function Home() {
     segmentsOverride?: TransitionVideo[],
     options?: AudioFinalizeOptions,
     skipPreflight: boolean = false,
-    updateReason: UpdateReason = 'full'
+    updateReason: UpdateReason = "full"
   ) => {
     const baseSegments = segmentsOverride ?? transitionVideos;
+
+    console.log("baseSegments", baseSegments);
+    console.log("options", options);
+    console.log("skipPreflight", skipPreflight);
+    console.log("updateReason", updateReason);
 
     if (!skipPreflight) {
       const warnings = runPreflightChecks(baseSegments);
@@ -629,9 +713,12 @@ export default function Home() {
     try {
       setIsFinalizingVideo(true);
       setFinalizationProgress(0);
-      setFinalizationMessage('Initializing...');
+      setFinalizationMessage("Initializing...");
 
-      const segmentsToFinalize = syncSegmentsToLoopCount(baseSegments, loopCount);
+      const segmentsToFinalize = syncSegmentsToLoopCount(
+        baseSegments,
+        loopCount
+      );
 
       // Build context for finalization
       const context: FinalizeContext = {
@@ -653,7 +740,7 @@ export default function Home() {
       );
 
       if (!result) {
-        throw new Error('Failed to finalize video');
+        throw new Error("Failed to finalize video");
       }
 
       // Update cache for future audio-only updates
@@ -674,10 +761,10 @@ export default function Home() {
         createdAt: new Date(),
       });
 
-      setFinalizationMessage('Video finalized successfully!');
+      setFinalizationMessage("Video finalized successfully!");
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error finalizing video:', error);
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("Error finalizing video:", error);
       setFinalizationMessage(`Error: ${errorMsg}`);
     } finally {
       setIsFinalizingVideo(false);
@@ -687,7 +774,7 @@ export default function Home() {
   const handleDownloadFinalVideo = () => {
     if (!finalVideo) return;
 
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = finalVideo.url;
     link.download = `easy-peasy-ease-${finalVideo.createdAt.getTime()}.mp4`;
     document.body.appendChild(link);
@@ -707,35 +794,39 @@ export default function Home() {
     });
   };
 
-  const handleVideoDragStart = (index: number) => (event: React.DragEvent<HTMLButtonElement>) => {
-    setDraggingVideoIndex(index);
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', index.toString());
-  };
+  const handleVideoDragStart =
+    (index: number) => (event: React.DragEvent<HTMLButtonElement>) => {
+      setDraggingVideoIndex(index);
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", index.toString());
+    };
 
-  const handleVideoDragOver = (index: number) => (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (draggingVideoIndex === null || draggingVideoIndex === index) {
-      setDropIndicatorIndex(null);
-      return;
-    }
-    event.dataTransfer.dropEffect = 'move';
-    setDropIndicatorIndex(index);
-  };
+  const handleVideoDragOver =
+    (index: number) => (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if (draggingVideoIndex === null || draggingVideoIndex === index) {
+        setDropIndicatorIndex(null);
+        return;
+      }
+      event.dataTransfer.dropEffect = "move";
+      setDropIndicatorIndex(index);
+    };
 
-  const handleVideoDrop = (index: number) => (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const sourceIndex =
-      draggingVideoIndex ?? Number.parseInt(event.dataTransfer.getData('text/plain'), 10);
-    if (Number.isNaN(sourceIndex)) {
+  const handleVideoDrop =
+    (index: number) => (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const sourceIndex =
+        draggingVideoIndex ??
+        Number.parseInt(event.dataTransfer.getData("text/plain"), 10);
+      if (Number.isNaN(sourceIndex)) {
+        setDraggingVideoIndex(null);
+        setDropIndicatorIndex(null);
+        return;
+      }
+      reorderTransitionVideos(sourceIndex, index);
       setDraggingVideoIndex(null);
       setDropIndicatorIndex(null);
-      return;
-    }
-    reorderTransitionVideos(sourceIndex, index);
-    setDraggingVideoIndex(null);
-    setDropIndicatorIndex(null);
-  };
+    };
 
   const handleVideoDragEnd = () => {
     setDraggingVideoIndex(null);
@@ -746,7 +837,7 @@ export default function Home() {
     if (!video.url || video.loading) {
       return;
     }
-    window.open(video.url, '_blank', 'noopener,noreferrer');
+    window.open(video.url, "_blank", "noopener,noreferrer");
   };
 
   const warningKeySet = new Set<string>();
@@ -760,16 +851,21 @@ export default function Home() {
     if (!capability) {
       return;
     }
-    if (capability.status === 'checking' || capability.status === 'pending') {
+    if (capability.status === "checking" || capability.status === "pending") {
       hasPendingEncodeChecks = true;
     }
     const key = `${segment.name}-${segment.width ?? 0}x${segment.height ?? 0}`;
-    if (capability.status === 'unsupported') {
+    if (capability.status === "unsupported") {
       if (!warningKeySet.has(key)) {
         warningKeySet.add(key);
-        encodeWarnings.push(`${segment.name} (${formatResolutionLabel(segment.width, segment.height)})`);
+        encodeWarnings.push(
+          `${segment.name} (${formatResolutionLabel(
+            segment.width,
+            segment.height
+          )})`
+        );
       }
-    } else if (capability.status === 'error') {
+    } else if (capability.status === "error") {
       if (!errorKeySet.has(key)) {
         errorKeySet.add(key);
         encodeErrors.push(segment.name);
@@ -781,15 +877,21 @@ export default function Home() {
     <div className="relative flex min-h-[calc(100vh-80px)] items-center justify-center bg-background overflow-hidden pb-20 sm:pb-24">
       <LightRays
         className="absolute inset-0 z-0"
-        color={isDropZoneHovered ? "rgba(160, 210, 255, 0.17)" : "rgba(160, 210, 255, 0.15)"}
+        color={
+          isDropZoneHovered
+            ? "rgba(160, 210, 255, 0.17)"
+            : "rgba(160, 210, 255, 0.15)"
+        }
         count={7}
         speed={14}
         length={isDropZoneHovered ? "85vh" : "70vh"}
       />
       <main
         className={cn(
-          'relative z-10 flex w-full flex-col items-center justify-center gap-12 px-4 py-12',
-          finalVideo ? 'max-w-none items-stretch justify-start px-4 py-8 lg:px-8 lg:py-10' : 'max-w-2xl'
+          "relative z-10 flex w-full flex-col items-center justify-center gap-12 px-4 py-12",
+          finalVideo
+            ? "max-w-none items-stretch justify-start px-4 py-8 lg:px-8 lg:py-10"
+            : "max-w-2xl"
         )}
       >
         {finalVideo ? (
@@ -826,7 +928,10 @@ export default function Home() {
               onLoopCountChange={handleLoopCountChange}
             />
 
-            <Dialog open={showPreflightDialog} onOpenChange={setShowPreflightDialog}>
+            <Dialog
+              open={showPreflightDialog}
+              onOpenChange={setShowPreflightDialog}
+            >
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-500">
@@ -839,24 +944,44 @@ export default function Home() {
                 </DialogHeader>
                 <div className="max-h-[60vh] overflow-y-auto py-4 space-y-4">
                   {preflightWarnings.map((warning) => (
-                    <div key={warning.id} className={cn("rounded-md border p-3 text-sm",
-                      warning.severity === 'error' ? "bg-destructive/10 border-destructive/20" : "bg-amber-500/10 border-amber-500/20"
-                    )}>
-                      <h5 className={cn("font-semibold mb-1",
-                        warning.severity === 'error' ? "text-destructive" : "text-amber-700 dark:text-amber-400"
-                      )}>
+                    <div
+                      key={warning.id}
+                      className={cn(
+                        "rounded-md border p-3 text-sm",
+                        warning.severity === "error"
+                          ? "bg-destructive/10 border-destructive/20"
+                          : "bg-amber-500/10 border-amber-500/20"
+                      )}
+                    >
+                      <h5
+                        className={cn(
+                          "font-semibold mb-1",
+                          warning.severity === "error"
+                            ? "text-destructive"
+                            : "text-amber-700 dark:text-amber-400"
+                        )}
+                      >
                         {warning.title}
                       </h5>
-                      <p className="text-muted-foreground">{warning.description}</p>
+                      <p className="text-muted-foreground">
+                        {warning.description}
+                      </p>
                     </div>
                   ))}
                 </div>
                 <DialogFooter className="gap-2 sm:gap-0">
-                  <Button variant="outline" onClick={() => setShowPreflightDialog(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowPreflightDialog(false)}
+                  >
                     Back to Edit
                   </Button>
                   <Button
-                    variant={preflightWarnings.some(w => w.severity === 'error') ? "destructive" : "default"}
+                    variant={
+                      preflightWarnings.some((w) => w.severity === "error")
+                        ? "destructive"
+                        : "default"
+                    }
                     onClick={() => {
                       setShowPreflightDialog(false);
                       void handleFinalizeVideo(undefined, undefined, true);
@@ -897,7 +1022,7 @@ export default function Home() {
             <BlurFade>
               <div className="flex flex-col items-center gap-3 text-center">
                 <TextPressure
-                  text="EasyPeasyVideo"
+                  text="Jumpcut"
                   fontFamily="var(--font-inter-variable)"
                   weight={true}
                   width={false}
@@ -939,28 +1064,41 @@ export default function Home() {
                         ? "hover:border-muted-foreground/50 cursor-pointer"
                         : "cursor-not-allowed opacity-75"
                     )}
-                    onMouseEnter={() => isSupported && setIsDropZoneHovered(true)}
+                    onMouseEnter={() =>
+                      isSupported && setIsDropZoneHovered(true)
+                    }
                     onMouseLeave={() => setIsDropZoneHovered(false)}
-                    onClick={() => isSupported && document.getElementById('videos-input')?.click()}
+                    onClick={() =>
+                      isSupported &&
+                      document.getElementById("videos-input")?.click()
+                    }
                     onKeyDown={(e) => {
-                      if (isSupported && (e.key === 'Enter' || e.key === ' ')) {
+                      if (isSupported && (e.key === "Enter" || e.key === " ")) {
                         e.preventDefault();
-                        document.getElementById('videos-input')?.click();
+                        document.getElementById("videos-input")?.click();
                       }
                     }}
                     tabIndex={isSupported ? 0 : -1}
                     role="button"
-                    aria-label={isSupported ? "Click to upload videos" : "Browser not supported"}
+                    aria-label={
+                      isSupported
+                        ? "Click to upload videos"
+                        : "Browser not supported"
+                    }
                     aria-disabled={!isSupported}
                   >
                     <div className="flex flex-col items-center justify-center gap-4">
                       <Upload className="h-10 w-10 text-muted-foreground" />
                       <div className="flex flex-col items-center gap-2">
                         <p className="text-sm font-semibold text-foreground">
-                          {!isSupported ? 'Browser not supported, try Chrome' : 'Upload your videos'}
+                          {!isSupported
+                            ? "Browser not supported, try Chrome"
+                            : "Upload your videos"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {!isSupported ? 'WebCodecs API required' : 'MP4, WebM - Select one or more videos'}
+                          {!isSupported
+                            ? "WebCodecs API required"
+                            : "MP4, WebM - Select one or more videos"}
                         </p>
                       </div>
                     </div>
@@ -968,7 +1106,6 @@ export default function Home() {
                 </div>
               </BlurFade>
             )}
-
 
             {/* Uploaded Videos Preview */}
             {uploadedVideos.length > 0 && (
@@ -1004,46 +1141,51 @@ export default function Home() {
                     {transitionVideos.map((video, index) => {
                       const isDragging = draggingVideoIndex === index;
                       const statusText = video.loading
-                        ? 'Generating...'
+                        ? "Generating..."
                         : video.error
-                          ? `Error: ${video.error}`
-                          : video.url
-                            ? 'Ready to finalize'
-                            : 'Pending';
+                        ? `Error: ${video.error}`
+                        : video.url
+                        ? "Ready to finalize"
+                        : "Pending";
                       const statusColor = video.error
-                        ? 'text-destructive'
+                        ? "text-destructive"
                         : video.loading
-                          ? 'text-muted-foreground'
-                          : 'text-emerald-500';
+                        ? "text-muted-foreground"
+                        : "text-emerald-500";
                       const encodeCapability = video.encodeCapability;
                       let encodeStatusText: string | null = null;
-                      let encodeStatusClass = 'text-muted-foreground';
+                      let encodeStatusClass = "text-muted-foreground";
 
                       if (encodeCapability) {
                         switch (encodeCapability.status) {
-                          case 'pending':
-                          case 'checking':
-                            encodeStatusText =
-                              encodeCapability.message ?? 'Checking device encoder support…';
-                            encodeStatusClass = 'text-muted-foreground';
-                            break;
-                          case 'supported':
-                            encodeStatusText = null;
-                            break;
-                          case 'unsupported':
+                          case "pending":
+                          case "checking":
                             encodeStatusText =
                               encodeCapability.message ??
-                              `Cannot encode ${formatResolutionLabel(video.width, video.height)} on this device`;
-                            encodeStatusClass = 'text-amber-600';
+                              "Checking device encoder support…";
+                            encodeStatusClass = "text-muted-foreground";
                             break;
-                          case 'error':
+                          case "supported":
+                            encodeStatusText = null;
+                            break;
+                          case "unsupported":
                             encodeStatusText =
-                              encodeCapability.message ?? 'Encoder support check failed';
-                            encodeStatusClass = 'text-amber-600';
+                              encodeCapability.message ??
+                              `Cannot encode ${formatResolutionLabel(
+                                video.width,
+                                video.height
+                              )} on this device`;
+                            encodeStatusClass = "text-amber-600";
+                            break;
+                          case "error":
+                            encodeStatusText =
+                              encodeCapability.message ??
+                              "Encoder support check failed";
+                            encodeStatusClass = "text-amber-600";
                             break;
                           default:
                             encodeStatusText = encodeCapability.message ?? null;
-                            encodeStatusClass = 'text-muted-foreground';
+                            encodeStatusClass = "text-muted-foreground";
                         }
                       }
 
@@ -1051,14 +1193,13 @@ export default function Home() {
                         <div key={video.id}>
                           <div
                             className={cn(
-                              'flex items-center gap-3 rounded-lg border border-border/80 bg-secondary/50 p-4 transition-colors',
-                              isDragging && 'ring-2 ring-primary/40 bg-secondary'
+                              "flex items-center gap-3 rounded-lg border border-border/80 bg-secondary/50 p-4 transition-colors",
+                              isDragging &&
+                                "ring-2 ring-primary/40 bg-secondary"
                             )}
                             onDragOver={handleVideoDragOver(index)}
                             onDrop={handleVideoDrop(index)}
                           >
-
-
                             <button
                               type="button"
                               className="flex h-8 w-8 items-center justify-center rounded-md border border-dashed border-border/70 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary cursor-grab"
@@ -1092,9 +1233,16 @@ export default function Home() {
                                 <p className="font-medium text-sm truncate">
                                   {index + 1}. {video.name}
                                 </p>
-                                <p className={cn('text-xs mt-1', statusColor)}>{statusText}</p>
+                                <p className={cn("text-xs mt-1", statusColor)}>
+                                  {statusText}
+                                </p>
                                 {encodeStatusText && (
-                                  <p className={cn('text-xs mt-0.5', encodeStatusClass)}>
+                                  <p
+                                    className={cn(
+                                      "text-xs mt-0.5",
+                                      encodeStatusClass
+                                    )}
+                                  >
                                     {encodeStatusText}
                                   </p>
                                 )}
@@ -1108,13 +1256,17 @@ export default function Home() {
                               className="text-muted-foreground hover:text-foreground hover:bg-secondary/80"
                               onClick={() => {
                                 setTransitionVideos((prev) => {
-                                  const target = prev.find((v) => v.id === video.id);
+                                  const target = prev.find(
+                                    (v) => v.id === video.id
+                                  );
                                   if (target) {
                                     cleanupSegmentResources([target]);
                                   }
                                   return prev.filter((v) => v.id !== video.id);
                                 });
-                                setUploadedVideos((prev) => prev.filter((f) => f.name !== video.name));
+                                setUploadedVideos((prev) =>
+                                  prev.filter((f) => f.name !== video.name)
+                                );
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1129,44 +1281,54 @@ export default function Home() {
                   </div>
 
                   {/* Finalize Button for Uploaded Videos */}
-                  {transitionVideos.every((v) => v.url && !v.loading) && !isFinalizingVideo && (
-                    <div className="space-y-3">
-                      <div className="flex justify-center">
-                        <Button
-                          size="lg"
-                          onClick={() => handleFinalizeVideo()}
-                          className="gap-2"
-                        >
-                          <Play className="h-4 w-4" />
-                          {finalVideo ? 'Finalize Again' : 'Finalize & Stitch Videos'}
-                        </Button>
+                  {transitionVideos.every((v) => v.url && !v.loading) &&
+                    !isFinalizingVideo && (
+                      <div className="space-y-3">
+                        <div className="flex justify-center">
+                          <Button
+                            size="lg"
+                            onClick={() => handleFinalizeVideo(undefined, undefined, true)}
+                            className="gap-2"
+                          >
+                            <Play className="h-4 w-4" />
+                            {finalVideo
+                              ? "Finalize Again"
+                              : "Finalize & Stitch Videos"}
+                          </Button>
+                        </div>
+                        {hasPendingEncodeChecks &&
+                          encodeWarnings.length === 0 && (
+                            <p className="text-center text-xs text-muted-foreground">
+                              Checking device encoder support for uploaded
+                              videos…
+                            </p>
+                          )}
+                        {encodeWarnings.length > 0 && (
+                          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
+                            <p className="font-semibold">
+                              This device can&apos;t encode:
+                            </p>
+                            <ul className="mt-2 list-disc space-y-1 pl-5">
+                              {encodeWarnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                              ))}
+                            </ul>
+                            <p className="mt-3 text-xs">
+                              Consider downscaling or trimming before finalizing
+                              to avoid encoder errors on this device.
+                            </p>
+                          </div>
+                        )}
+                        {encodeErrors.length > 0 && (
+                          <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs text-yellow-800 dark:text-yellow-200">
+                            Unable to verify encoder support for{" "}
+                            {encodeErrors.join(", ")}. Finalization may still
+                            work, but it could fail if the device encoder is
+                            limited.
+                          </div>
+                        )}
                       </div>
-                      {hasPendingEncodeChecks && encodeWarnings.length === 0 && (
-                        <p className="text-center text-xs text-muted-foreground">
-                          Checking device encoder support for uploaded videos…
-                        </p>
-                      )}
-                      {encodeWarnings.length > 0 && (
-                        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
-                          <p className="font-semibold">This device can&apos;t encode:</p>
-                          <ul className="mt-2 list-disc space-y-1 pl-5">
-                            {encodeWarnings.map((warning) => (
-                              <li key={warning}>{warning}</li>
-                            ))}
-                          </ul>
-                          <p className="mt-3 text-xs">
-                            Consider downscaling or trimming before finalizing to avoid encoder errors on this device.
-                          </p>
-                        </div>
-                      )}
-                      {encodeErrors.length > 0 && (
-                        <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs text-yellow-800 dark:text-yellow-200">
-                          Unable to verify encoder support for {encodeErrors.join(', ')}. Finalization may still work,
-                          but it could fail if the device encoder is limited.
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
 
                   {/* Finalization Progress */}
                   {isFinalizingVideo && (
@@ -1190,11 +1352,9 @@ export default function Home() {
                 </div>
               </BlurFade>
             )}
-
           </>
         )}
       </main>
-
     </div>
   );
 }

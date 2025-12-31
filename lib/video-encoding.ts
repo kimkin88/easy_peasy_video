@@ -27,6 +27,7 @@ export const createAvcEncodingConfig = (
   framerate?: number
 ): VideoEncodingConfig => ({
   codec: 'avc',
+  sizeChangeBehavior: 'contain',
   bitrate,
   keyFrameInterval: DEFAULT_KEYFRAME_INTERVAL,
   bitrateMode: 'variable',
