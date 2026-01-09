@@ -205,6 +205,39 @@ export const useStitchVideos = (): UseStitchVideosReturn => {
           rotation: aggregateRotation,
           maxSourceBitrate,
         } = await determineEncodeParameters(videoBlobs);
+
+        const isSingle = videoBlobs.length === 1;
+
+        // let outWidth;
+        // let outHeight;
+
+        // if (isSingle) {
+        //   // single video → force 1280×720
+        //   outWidth = 1280;
+        //   outHeight = 720;
+        // } else {
+        //   // multi-video → preserve aggregate aspect
+        //   const aspect = probedWidth / probedHeight;
+
+        //   // normalize to closest canonical aspect buckets
+        //   if (aspect >= 1.6) {
+        //     // widescreen / 16:9 family
+        //     outWidth = probedWidth;
+        //     outHeight = Math.round(outWidth / 1.777777);
+        //   } else if (aspect <= 0.7) {
+        //     // portrait / 9:16 family
+        //     outHeight = probedHeight;
+        //     outWidth = Math.round(outHeight * 0.5625);
+        //   } else {
+        //     // square-ish (1:1 ~ 4:3)
+        //     outWidth = probedWidth;
+        //     outHeight = probedHeight;
+        //   }
+        // }
+
+        // outWidth = ensureEvenDimension(outWidth);
+        // outHeight = ensureEvenDimension(outHeight);
+
         const safeWidth = probedWidth > 0 ? probedWidth : FALLBACK_WIDTH;
         const safeHeight = probedHeight > 0 ? probedHeight : FALLBACK_HEIGHT;
         const codecProfile =
@@ -244,8 +277,11 @@ export const useStitchVideos = (): UseStitchVideosReturn => {
         // Create output once
         updateProgress('processing', 'Creating output container...', 10);
 
+        const encodeWidth = isSingle ? safeWidth : 1280;
+        const encodeHeight = isSingle ? safeHeight : 720;
+
         const videoSource = new VideoSampleSource(
-          createAvcEncodingConfig(resolvedBitrate, 1280, 720, codecProfile)
+          createAvcEncodingConfig(resolvedBitrate, encodeWidth, encodeHeight, codecProfile)
         );
 
         const bufferTarget = new BufferTarget();
